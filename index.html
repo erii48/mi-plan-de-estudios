@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan de Estudios Interactivo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SDK de Appwrite -->
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@11.0.0"></script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f0fdf4; /* green-50 */
+        }
+        .materia-card {
+            transition: all 0.2s ease-in-out;
+            border-radius: 0.75rem; /* rounded-xl */
+        }
+        .materia-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .materia-card.locked {
+            background-color: #e5e7eb;
+            color: #9ca3af;
+        }
+        .materia-card.locked .status-select {
+            pointer-events: none;
+            background-color: #d1d5db;
+        }
+        .materia-card.unlocked {
+            background-color: #ffffff;
+        }
+        .materia-card.approved {
+            background-color: #dcfce7; /* green-100 */
+            border-left-color: #22c55e; /* green-500 */
+        }
+        .materia-card.in-progress {
+            background-color: #fef9c3; /* yellow-100 */
+            border-left-color: #f59e0b; /* amber-500 */
+        }
+        .materia-card.regular {
+            background-color: #dbeafe; /* blue-100 */
+            border-left-color: #3b82f6; /* blue-500 */
+        }
+        .status-select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%236b7280' class='w-6 h-6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+        #main-content {
+            display: none;
+        }
+        .loader {
+            border: 4px solid #d1fae5; /* green-200 */
+            border-top: 4px solid #16a34a; /* green-600 */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+
+    <div id="loading-container" class="fixed inset-0 bg-white/70 backdrop-blur-sm flex flex-col justify-center items-center z-50 text-center p-4">
+        <div class="loader"></div>
+        <p id="loading-text" class="mt-4 text-green-800">Conectando con el servidor...</p>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div id="main-content" class="max-w-7xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl sm:text-5xl font-bold text-green-900">Plan de Estudios Interactivo</h1>
+            <p class="text-green-700 mt-2 text-lg">Contador Público</p>
+        </header>
+
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold text-green-800 mb-2">Progreso de la Carrera</h2>
+            <div class="w-full bg-green-100 rounded-full h-4 shadow-inner">
+                <div id="progress-bar" class="bg-green-500 h-4 rounded-full text-xs font-medium text-green-100 text-center p-0.5 leading-none transition-all duration-500" style="width: 0%">
+                    <span id="progress-text">0%</span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="plan-container" class="space-y-12"></div>
+
+        <footer class="mt-12 pt-6 border-t border-green-200">
+            <h3 class="text-lg font-semibold text-green-800 mb-4 text-center">Leyenda de Colores</h3>
+            <div class="flex flex-wrap justify-center gap-4">
+                <div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-white border border-gray-300"></div><span class="text-sm text-gray-600">Habilitada</span></div>
+                <div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-dbeafe"></div><span class="text-sm text-gray-600">Regularizada</span></div>
+                <div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-fef9c3"></div><span class="text-sm text-gray-600">En Curso</span></div>
+                <div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-dcfce7"></div><span class="text-sm text-gray-600">Aprobada</span></div>
+                <div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-e5e7eb"></div><span class="text-sm text-gray-600">Bloqueada</span></div>
+            </div>
+        </footer>
+    </div>
+
+    <script type="module">
+        const { Client, Account, Databases, ID } = Appwrite;
+
+        // --- CONFIGURACIÓN DE APPWRITE (YA COMPLETADA) ---
+        const APPWRITE_PROJECT_ID = '68733545002a53e546d2';
+        const APPWRITE_DATABASE_ID = '6873361f00227be3f2c1';
+        const APPWRITE_COLLECTION_ID = '6873366200311235eb7b';
+        
+        const client = new Client();
+        client
+            .setEndpoint('https://cloud.appwrite.io/v1')
+            .setProject(APPWRITE_PROJECT_ID);
+        const account = new Account(client);
+        const databases = new Databases(client);
+
+        let estadosMaterias = {};
+        let userSessionId = null;
+
+        const planDeEstudios = [ { anio: "1º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 1, nombre: "Administración", correlativas: [] }, { id: 2, nombre: "Comercialización", correlativas: [] }, { id: 3, nombre: "Contabilidad I", correlativas: [] }, { id: 4, nombre: "Historia Social y Económica", correlativas: [] }, { id: 5, nombre: "Inglés I", correlativas: [] }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 6, nombre: "Comercio Internacional", correlativas: [] }, { id: 7, nombre: "Principios de Economía", correlativas: [] }, { id: 8, nombre: "Matemática I", correlativas: [] }, { id: 9, nombre: "Administración II", correlativas: [1] }, { id: 10, nombre: "Informática", correlativas: [] }, { id: 11, nombre: "Inglés II", correlativas: [5] }, ] } ] }, { anio: "2º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 12, nombre: "Matemática II", correlativas: [8] }, { id: 13, nombre: "Microeconomía", correlativas: [7] }, { id: 14, nombre: "Contabilidad II", correlativas: [3] }, { id: 15, nombre: "Teoría de las Organizaciones", correlativas: [1] }, { id: 16, nombre: "Derecho Constitucional y Admin.", correlativas: [] }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 17, nombre: "Psicología Aplicada", correlativas: [] }, { id: 18, nombre: "Sistemas de Información", correlativas: [15] }, { id: 19, nombre: "Macroeconomía", correlativas: [7] }, { id: 20, nombre: "Informática Aplicada", correlativas: [10] }, { id: 21, nombre: "Problemática del Mundo Actual", correlativas: [4] }, ] } ] }, { anio: "3º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 22, nombre: "Matemática Financiera", correlativas: [12] }, { id: 23, nombre: "Derecho Civil y Comercial", correlativas: [16] }, { id: 24, nombre: "Estadística", correlativas: [12] }, { id: 25, nombre: "Costos", correlativas: [13, 14] }, { id: 26, nombre: "Estructura Política Económica Arg.", correlativas: [] }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 27, nombre: "Administración Financiera", correlativas: [22, 25] }, { id: 28, nombre: "Sociedades", correlativas: [23] }, { id: 29, nombre: "Análisis de Estados Contables", correlativas: [14] }, { id: 30, nombre: "Seminario en Admin. Contable", correlativas: [18, 25] }, { id: 31, nombre: "Costos II", correlativas: [25] }, ] } ] }, { anio: "4º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 32, nombre: "Derecho Laboral y Previsional", correlativas: [23] }, { id: 33, nombre: "Evaluación de Proyectos", correlativas: [2, 27] }, { id: 34, nombre: "Auditoría", correlativas: [29] }, { id: 35, nombre: "Finanzas Públicas y Derecho Tributario", correlativas: [23] }, { id: 36, nombre: "Metodología de la Investigación", correlativas: [24] }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 37, nombre: "Concursos y Quiebras", correlativas: [28, 32] }, { id: 38, nombre: "Impuestos a las Rentas y Patrimonio", correlativas: [35] }, { id: 39, nombre: "Impuesto sobre Consumos y Proc. Tributario", correlativas: [35] }, { id: 40, nombre: "Técnicas Cuantitativas", correlativas: [24] }, { id: 41, nombre: "Taller de Trabajo Final", correlativas: [36] }, ] } ] }, { anio: "5º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 42, nombre: "Prácticas Profesionales Impositivas", correlativas: [38, 39] }, { id: 43, nombre: "Prácticas Profesionales Admin-Contable", correlativas: [27, 29, 30] }, { id: 44, nombre: "Prácticas Profesionales Jurídica-Contable", correlativas: [37] }, { id: 45, nombre: "Prácticas Profesionales Supervisadas", correlativas: Array.from({length: 36}, (_, i) => i + 1) }, { id: 46, nombre: "Trabajo Final", correlativas: Array.from({length: 44}, (_, i) => i + 1) }, { id: 47, nombre: "Experiencias Formativas Obligatorias", correlativas: [5] }, ] } ] } ];
+        const estados = { NO_CURSADA: 'No Cursada', EN_CURSO: 'En Curso', REGULAR: 'Regularizada', APROBADA: 'Aprobada' };
+
+        // --- INICIALIZACIÓN DE LA APLICACIÓN ---
+        async function initApp() {
+            const loadingContainer = document.getElementById('loading-container');
+            const mainContent = document.getElementById('main-content');
+            const loadingText = document.getElementById('loading-text');
+
+            try {
+                await cargarEstadoAppwrite();
+                loadingContainer.style.display = 'none';
+                mainContent.style.display = 'block';
+                renderizarPlan();
+                actualizarUI();
+            } catch (error) {
+                console.error("Appwrite initialization failed:", error);
+                loadingContainer.classList.remove('bg-white/70');
+                loadingContainer.classList.add('bg-red-50');
+                const loader = document.querySelector('#loading-container .loader');
+                if(loader) loader.style.display = 'none';
+                loadingText.innerHTML = `<div class="text-center"><p class="font-bold text-red-700 text-lg">Error de Conexión</p><p class="text-red-600 mt-2">No se pudo conectar a la base de datos. Asegúrate de haber seguido todos los pasos de configuración en Appwrite y GitHub Pages.</p></div>`;
+            }
+        }
+        
+        // --- LÓGICA DE DATOS ---
+        async function cargarEstadoAppwrite() {
+            let session;
+            try {
+                session = await account.getSession('current');
+            } catch (e) {
+                session = await account.createAnonymousSession();
+            }
+            userSessionId = session.$id;
+
+            try {
+                const document = await databases.getDocument(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_ID, userSessionId);
+                estadosMaterias = JSON.parse(document.estados);
+            } catch (e) {
+                if (e.code === 404) {
+                    getMateriasList().forEach(m => { estadosMaterias[m.id] = estados.NO_CURSADA; });
+                    await databases.createDocument(
+                        APPWRITE_DATABASE_ID,
+                        APPWRITE_COLLECTION_ID,
+                        userSessionId, 
+                        { estados: JSON.stringify(estadosMaterias) }
+                    );
+                } else {
+                    throw e;
+                }
+            }
+        }
+        
+        async function guardarEstado() {
+            if (userSessionId) {
+                try {
+                    await databases.updateDocument(
+                        APPWRITE_DATABASE_ID,
+                        APPWRITE_COLLECTION_ID,
+                        userSessionId,
+                        { estados: JSON.stringify(estadosMaterias) }
+                    );
+                    console.log("Progreso guardado en Appwrite.");
+                } catch (error) {
+                    console.error("Error al guardar en Appwrite:", error);
+                }
+            }
+        }
+
+        // --- LÓGICA DE LA INTERFAZ DE USUARIO ---
+        function getMateriasList() { return planDeEstudios.flatMap(a => a.cuatrimestres.flatMap(c => c.materias)); }
+        function estaHabilitada(materia) { return materia.correlativas.length === 0 || materia.correlativas.every(id => estadosMaterias[id] === estados.APROBADA); }
+        
+        function actualizarUI() {
+            getMateriasList().forEach(m => {
+                const card = document.getElementById(`materia-${m.id}`);
+                const select = document.getElementById(`select-${m.id}`);
+                if (!card || !select) return;
+
+                const habilitada = estaHabilitada(m);
+                card.classList.remove('locked', 'unlocked', 'approved', 'in-progress', 'regular');
+                
+                if (!habilitada && estadosMaterias[m.id] !== estados.APROBADA) {
+                    card.classList.add('locked');
+                    if (estadosMaterias[m.id] !== estados.NO_CURSADA) {
+                        estadosMaterias[m.id] = estados.NO_CURSADA;
+                    }
+                } else {
+                    card.classList.add('unlocked');
+                }
+                
+                select.value = estadosMaterias[m.id] || estados.NO_CURSADA;
+                if(estadosMaterias[m.id] === estados.APROBADA) card.classList.add('approved');
+                if(estadosMaterias[m.id] === estados.EN_CURSO) card.classList.add('in-progress');
+                if(estadosMaterias[m.id] === estados.REGULAR) card.classList.add('regular');
+            });
+            actualizarProgreso();
+        }
+
+        function actualizarProgreso() {
+            const total = getMateriasList().length;
+            const aprobadas = Object.values(estadosMaterias).filter(e => e === estados.APROBADA).length;
+            const porc = total > 0 ? (aprobadas / total) * 100 : 0;
+            document.getElementById('progress-bar').style.width = `${porc}%`;
+            document.getElementById('progress-text').textContent = `${Math.round(porc)}%`;
+        }
+
+        function renderizarPlan() {
+            const container = document.getElementById('plan-container');
+            container.innerHTML = '';
+            planDeEstudios.forEach(anio => {
+                const anioWrapper = document.createElement('div');
+                anioWrapper.innerHTML = `<h2 class="text-3xl font-bold text-green-800 border-b-2 border-green-300 pb-2 mb-6">${anio.anio}</h2>`;
+                anio.cuatrimestres.forEach(cuatri => {
+                    const cuatriWrapper = document.createElement('div');
+                    cuatriWrapper.className = 'mb-8';
+                    cuatriWrapper.innerHTML = `<h3 class="text-xl font-semibold text-green-700 mb-4">${cuatri.nombre}</h3>`;
+                    const grid = document.createElement('div');
+                    grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5';
+                    cuatri.materias.forEach(m => {
+                        const corr = m.correlativas.length > 0 ? `Correlativas: ${m.correlativas.join(', ')}` : 'Sin correlativas';
+                        const card = document.createElement('div');
+                        card.id = `materia-${m.id}`;
+                        card.className = 'materia-card p-4 shadow-md border-l-4 border-transparent';
+                        card.innerHTML = `<div class="flex justify-between items-start"><h4 class="font-bold text-base text-green-900 mb-1">${m.nombre}</h4><span class="text-xs font-semibold bg-green-100 text-green-800 px-2 py-1 rounded-full">${m.id}</span></div><p class="text-xs text-gray-500 mb-4">${corr}</p><select id="select-${m.id}" data-id="${m.id}" class="status-select w-full p-2 border border-gray-300 rounded-md bg-white text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500">${Object.values(estados).map(e => `<option>${e}</option>`).join('')}</select>`;
+                        grid.appendChild(card);
+                    });
+                    cuatriWrapper.appendChild(grid);
+                    anioWrapper.appendChild(cuatriWrapper);
+                });
+                container.appendChild(anioWrapper);
+            });
+            document.querySelectorAll('.status-select').forEach(s => s.addEventListener('change', async (e) => {
+                estadosMaterias[e.target.dataset.id] = e.target.value;
+                actualizarUI();
+                await guardarEstado();
+            }));
+        }
+
+        // --- INICIALIZACIÓN ---
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
