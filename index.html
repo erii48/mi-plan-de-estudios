@@ -14,6 +14,8 @@
         body {
             font-family: 'Poppins', sans-serif;
             background-color: #f0fdf4; /* green-50 */
+            position: relative;
+            overflow-x: hidden; /* Prevenir scroll horizontal por las decoraciones */
         }
         .materia-card {
             transition: all 0.2s ease-in-out;
@@ -71,6 +73,14 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .recommendation-item {
+            background: white;
+            border-left: 4px solid #10b981;
+        }
+        .current-semester {
+            border: 2px solid #22c55e;
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+        }
     </style>
 </head>
 <body class="p-4 sm:p-6 md:p-8">
@@ -81,10 +91,13 @@
     </div>
 
     <!-- Contenido Principal -->
-    <div id="main-content" class="max-w-7xl mx-auto">
-        <header class="mb-8 text-center">
-            <h1 class="text-4xl sm:text-5xl font-bold text-green-900">Plan de Estudios Interactivo</h1>
-            <p class="text-green-700 mt-2 text-lg">Contador Público</p>
+    <div id="main-content" class="max-w-7xl mx-auto relative z-10">
+        <header class="mb-8 flex justify-center items-center gap-4 sm:gap-6">
+            <img src="https://aicogestion.org/wp-content/uploads/2018/06/Logo-UAI.png" alt="Logo UAI" class="h-16 w-16 sm:h-65 sm:w-56 object-contain" onerror="this.style.display='none'">
+            <div class="text-left">
+                <h1 class="text-3xl sm:text-4xl font-bold text-green-900">Plan de Estudios Interactivo</h1>
+                <p class="text-green-700 mt-1 text-lg">Contador Público</p>
+            </div>
         </header>
 
         <div class="mb-8">
@@ -96,6 +109,23 @@
             </div>
         </div>
         
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <div id="recommendations-box-1" class="p-6 bg-green-50 border border-green-200 rounded-xl">
+                <h2 class="text-2xl font-bold text-green-800 mb-4 flex items-center gap-3">
+                    Para el 1º Cuatrimestre
+                    <span id="current-semester-badge-1" class="hidden text-xs font-semibold text-white bg-blue-500 px-3 py-1 rounded-full">Cursando Ahora</span>
+                </h2>
+                <div id="recommendations-list-1" class="space-y-3"></div>
+            </div>
+            <div id="recommendations-box-2" class="p-6 bg-green-50 border border-green-200 rounded-xl">
+                 <h2 class="text-2xl font-bold text-green-800 mb-4 flex items-center gap-3">
+                    Para el 2º Cuatrimestre
+                    <span id="current-semester-badge-2" class="hidden text-xs font-semibold text-white bg-blue-500 px-3 py-1 rounded-full">Cursando Ahora</span>
+                </h2>
+                <div id="recommendations-list-2" class="space-y-3"></div>
+            </div>
+        </div>
+
         <div id="plan-container" class="space-y-12"></div>
 
         <footer class="mt-12 pt-6 border-t border-green-200">
@@ -127,15 +157,17 @@
 
         let estadosMaterias = {};
         let userSessionId = null;
+        let unlockMap = {};
 
-        const planDeEstudios = [ { anio: "1º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 1, nombre: "Administración", correlativas: [] }, { id: 2, nombre: "Comercialización", correlativas: [] }, { id: 3, nombre: "Contabilidad I", correlativas: [] }, { id: 4, nombre: "Historia Social y Económica", correlativas: [] }, { id: 5, nombre: "Inglés I", correlativas: [] }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 6, nombre: "Comercio Internacional", correlativas: [] }, { id: 7, nombre: "Principios de Economía", correlativas: [] }, { id: 8, nombre: "Matemática I", correlativas: [] }, { id: 9, nombre: "Administración II", correlativas: [1] }, { id: 10, nombre: "Informática", correlativas: [] }, { id: 11, nombre: "Inglés II", correlativas: [5] }, ] } ] }, { anio: "2º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 12, nombre: "Matemática II", correlativas: [8] }, { id: 13, nombre: "Microeconomía", correlativas: [7] }, { id: 14, nombre: "Contabilidad II", correlativas: [3] }, { id: 15, nombre: "Teoría de las Organizaciones", correlativas: [1] }, { id: 16, nombre: "Derecho Constitucional y Admin.", correlativas: [] }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 17, nombre: "Psicología Aplicada", correlativas: [] }, { id: 18, nombre: "Sistemas de Información", correlativas: [15] }, { id: 19, nombre: "Macroeconomía", correlativas: [7] }, { id: 20, nombre: "Informática Aplicada", correlativas: [10] }, { id: 21, nombre: "Problemática del Mundo Actual", correlativas: [4] }, ] } ] }, { anio: "3º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 22, nombre: "Matemática Financiera", correlativas: [12] }, { id: 23, nombre: "Derecho Civil y Comercial", correlativas: [16] }, { id: 24, nombre: "Estadística", correlativas: [12] }, { id: 25, nombre: "Costos", correlativas: [13, 14] }, { id: 26, nombre: "Estructura Política Económica Arg.", correlativas: [] }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 27, nombre: "Administración Financiera", correlativas: [22, 25] }, { id: 28, nombre: "Sociedades", correlativas: [23] }, { id: 29, nombre: "Análisis de Estados Contables", correlativas: [14] }, { id: 30, nombre: "Seminario en Admin. Contable", correlativas: [18, 25] }, { id: 31, nombre: "Costos II", correlativas: [25] }, ] } ] }, { anio: "4º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 32, nombre: "Derecho Laboral y Previsional", correlativas: [23] }, { id: 33, nombre: "Evaluación de Proyectos", correlativas: [2, 27] }, { id: 34, nombre: "Auditoría", correlativas: [29] }, { id: 35, nombre: "Finanzas Públicas y Derecho Tributario", correlativas: [23] }, { id: 36, nombre: "Metodología de la Investigación", correlativas: [24] }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 37, nombre: "Concursos y Quiebras", correlativas: [28, 32] }, { id: 38, nombre: "Impuestos a las Rentas y Patrimonio", correlativas: [35] }, { id: 39, nombre: "Impuesto sobre Consumos y Proc. Tributario", correlativas: [35] }, { id: 40, nombre: "Técnicas Cuantitativas", correlativas: [24] }, { id: 41, nombre: "Taller de Trabajo Final", correlativas: [36] }, ] } ] }, { anio: "5º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 42, nombre: "Prácticas Profesionales Impositivas", correlativas: [38, 39] }, { id: 43, nombre: "Prácticas Profesionales Admin-Contable", correlativas: [27, 29, 30] }, { id: 44, nombre: "Prácticas Profesionales Jurídica-Contable", correlativas: [37] }, { id: 45, nombre: "Prácticas Profesionales Supervisadas", correlativas: Array.from({length: 36}, (_, i) => i + 1) }, { id: 46, nombre: "Trabajo Final", correlativas: Array.from({length: 44}, (_, i) => i + 1) }, { id: 47, nombre: "Experiencias Formativas Obligatorias", correlativas: [5] }, ] } ] } ];
+        const planDeEstudios = [ { anio: "1º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 1, nombre: "Administración", correlativas: [], cuatrimestre: 1 }, { id: 2, nombre: "Comercialización", correlativas: [], cuatrimestre: 1 }, { id: 3, nombre: "Contabilidad I", correlativas: [], cuatrimestre: 1 }, { id: 4, nombre: "Historia Social y Económica", correlativas: [], cuatrimestre: 1 }, { id: 5, nombre: "Inglés I", correlativas: [], cuatrimestre: 1 }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 6, nombre: "Comercio Internacional", correlativas: [], cuatrimestre: 2 }, { id: 7, nombre: "Principios de Economía", correlativas: [], cuatrimestre: 2 }, { id: 8, nombre: "Matemática I", correlativas: [], cuatrimestre: 2 }, { id: 9, nombre: "Administración II", correlativas: [1], cuatrimestre: 2 }, { id: 10, nombre: "Informática", correlativas: [], cuatrimestre: 2 }, { id: 11, nombre: "Inglés II", correlativas: [5], cuatrimestre: 2 }, ] } ] }, { anio: "2º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 12, nombre: "Matemática II", correlativas: [8], cuatrimestre: 1 }, { id: 13, nombre: "Microeconomía", correlativas: [7], cuatrimestre: 1 }, { id: 14, nombre: "Contabilidad II", correlativas: [3], cuatrimestre: 1 }, { id: 15, nombre: "Teoría de las Organizaciones", correlativas: [1], cuatrimestre: 1 }, { id: 16, nombre: "Derecho Constitucional y Admin.", correlativas: [], cuatrimestre: 1 }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 17, nombre: "Psicología Aplicada", correlativas: [], cuatrimestre: 2 }, { id: 18, nombre: "Sistemas de Información", correlativas: [15], cuatrimestre: 2 }, { id: 19, nombre: "Macroeconomía", correlativas: [7], cuatrimestre: 2 }, { id: 20, nombre: "Informática Aplicada", correlativas: [10], cuatrimestre: 2 }, { id: 21, nombre: "Problemática del Mundo Actual", correlativas: [4], cuatrimestre: 2 }, ] } ] }, { anio: "3º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 22, nombre: "Matemática Financiera", correlativas: [12], cuatrimestre: 1 }, { id: 23, nombre: "Derecho Civil y Comercial", correlativas: [16], cuatrimestre: 1 }, { id: 24, nombre: "Estadística", correlativas: [12], cuatrimestre: 1 }, { id: 25, nombre: "Costos", correlativas: [13, 14], cuatrimestre: 1 }, { id: 26, nombre: "Estructura Política Económica Arg.", correlativas: [], cuatrimestre: 1 }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 27, nombre: "Administración Financiera", correlativas: [22, 25], cuatrimestre: 2 }, { id: 28, nombre: "Sociedades", correlativas: [23], cuatrimestre: 2 }, { id: 29, nombre: "Análisis de Estados Contables", correlativas: [14], cuatrimestre: 2 }, { id: 30, nombre: "Seminario en Admin. Contable", correlativas: [18, 25], cuatrimestre: 2 }, { id: 31, nombre: "Costos II", correlativas: [25], cuatrimestre: 2 }, ] } ] }, { anio: "4º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 32, nombre: "Derecho Laboral y Previsional", correlativas: [23], cuatrimestre: 1 }, { id: 33, nombre: "Evaluación de Proyectos", correlativas: [2, 27], cuatrimestre: 1 }, { id: 34, nombre: "Auditoría", correlativas: [29], cuatrimestre: 1 }, { id: 35, nombre: "Finanzas Públicas y Derecho Tributario", correlativas: [23], cuatrimestre: 1 }, { id: 36, nombre: "Metodología de la Investigación", correlativas: [24], cuatrimestre: 1 }, ] }, { nombre: "2º Cuatrimestre", materias: [ { id: 37, nombre: "Concursos y Quiebras", correlativas: [28, 32], cuatrimestre: 2 }, { id: 38, nombre: "Impuestos a las Rentas y Patrimonio", correlativas: [35], cuatrimestre: 2 }, { id: 39, nombre: "Impuesto sobre Consumos y Proc. Tributario", correlativas: [35], cuatrimestre: 2 }, { id: 40, nombre: "Técnicas Cuantitativas", correlativas: [24], cuatrimestre: 2 }, { id: 41, nombre: "Taller de Trabajo Final", correlativas: [36], cuatrimestre: 2 }, ] } ] }, { anio: "5º AÑO", cuatrimestres: [ { nombre: "1º Cuatrimestre", materias: [ { id: 42, nombre: "Prácticas Profesionales Impositivas", correlativas: [38, 39], cuatrimestre: 1 }, { id: 43, nombre: "Prácticas Profesionales Admin-Contable", correlativas: [27, 29, 30], cuatrimestre: 1 }, { id: 44, nombre: "Prácticas Profesionales Jurídica-Contable", correlativas: [37], cuatrimestre: 1 }, { id: 45, nombre: "Prácticas Profesionales Supervisadas", correlativas: Array.from({length: 36}, (_, i) => i + 1), cuatrimestre: 1 }, { id: 46, nombre: "Trabajo Final", correlativas: Array.from({length: 44}, (_, i) => i + 1), cuatrimestre: 1 }, { id: 47, nombre: "Experiencias Formativas Obligatorias", correlativas: [5], cuatrimestre: 1 }, ] } ] } ];
         const estados = { NO_CURSADA: 'No Cursada', EN_CURSO: 'En Curso', REGULAR: 'Regularizada', APROBADA: 'Aprobada' };
 
         // --- INICIALIZACIÓN DE LA APLICACIÓN ---
         async function initApp() {
             const loadingContainer = document.getElementById('loading-container');
             const mainContent = document.getElementById('main-content');
-            const loadingText = document.getElementById('loading-text');
+            
+            calcularUnlockMap();
 
             try {
                 await cargarEstadoAppwrite();
@@ -145,11 +177,7 @@
                 actualizarUI();
             } catch (error) {
                 console.error("Appwrite initialization failed:", error);
-                loadingContainer.classList.remove('bg-white/70');
-                loadingContainer.classList.add('bg-red-50');
-                const loader = document.querySelector('#loading-container .loader');
-                if(loader) loader.style.display = 'none';
-                loadingText.innerHTML = `<div class="text-center"><p class="font-bold text-red-700 text-lg">Error de Conexión</p><p class="text-red-600 mt-2">No se pudo conectar a la base de datos. Asegúrate de haber seguido todos los pasos de configuración en Appwrite y GitHub Pages.</p></div>`;
+                loadingContainer.innerHTML = `<div class="text-center"><p class="font-bold text-red-700 text-lg">Error de Conexión</p><p class="text-red-600 mt-2">No se pudo conectar a la base de datos. Asegúrate de haber seguido todos los pasos de configuración en Appwrite y GitHub Pages.</p></div>`;
             }
         }
         
@@ -196,6 +224,68 @@
                 }
             }
         }
+        
+        // --- LÓGICA DE RECOMENDACIONES ---
+        function calcularUnlockMap() {
+            const todasLasMaterias = getMateriasList();
+            todasLasMaterias.forEach(m => { unlockMap[m.id] = 0; });
+            todasLasMaterias.forEach(m => {
+                m.correlativas.forEach(corrId => {
+                    if (unlockMap.hasOwnProperty(corrId)) {
+                        unlockMap[corrId]++;
+                    }
+                });
+            });
+        }
+
+        function actualizarRecomendaciones() {
+            const list1 = document.getElementById('recommendations-list-1');
+            const list2 = document.getElementById('recommendations-list-2');
+            list1.innerHTML = '';
+            list2.innerHTML = '';
+
+            const materiasHabilitadas = getMateriasList().filter(m => {
+                return estadosMaterias[m.id] !== estados.APROBADA && estaHabilitada(m);
+            });
+
+            const recomendaciones = materiasHabilitadas.map(m => ({
+                materia: m,
+                potencial: unlockMap[m.id] || 0
+            })).sort((a, b) => b.potencial - a.potencial);
+
+            const recs1 = recomendaciones.filter(r => r.materia.cuatrimestre === 1);
+            const recs2 = recomendaciones.filter(r => r.materia.cuatrimestre === 2);
+            
+            if (recs1.length === 0) {
+                list1.innerHTML = '<p class="text-green-600">Nada para recomendar.</p>';
+            } else {
+                recs1.slice(0, 5).forEach(rec => list1.appendChild(crearRecommendationItem(rec)));
+            }
+
+            if (recs2.length === 0) {
+                list2.innerHTML = '<p class="text-green-600">Nada para recomendar.</p>';
+            } else {
+                recs2.slice(0, 5).forEach(rec => list2.appendChild(crearRecommendationItem(rec)));
+            }
+            
+            const currentMonth = new Date().getMonth(); 
+            const currentSemester = (currentMonth >= 0 && currentMonth <= 5) ? 1 : 2; 
+            
+            document.getElementById('recommendations-box-1').classList.toggle('current-semester', currentSemester === 1);
+            document.getElementById('recommendations-box-2').classList.toggle('current-semester', currentSemester === 2);
+            document.getElementById('current-semester-badge-1').classList.toggle('hidden', currentSemester !== 1);
+            document.getElementById('current-semester-badge-2').classList.toggle('hidden', currentSemester !== 2);
+        }
+
+        function crearRecommendationItem(rec) {
+            const item = document.createElement('div');
+            item.className = 'recommendation-item p-3 rounded-lg shadow-sm flex justify-between items-center';
+            item.innerHTML = `
+                <span class="font-semibold text-green-900">${rec.materia.nombre}</span>
+                <span class="text-sm font-medium text-white bg-green-500 px-2 py-1 rounded-full" title="Materias que desbloquea esta asignatura">Desbloquea ${rec.potencial}</span>
+            `;
+            return item;
+        }
 
         // --- LÓGICA DE LA INTERFAZ DE USUARIO ---
         function getMateriasList() { return planDeEstudios.flatMap(a => a.cuatrimestres.flatMap(c => c.materias)); }
@@ -225,6 +315,7 @@
                 if(estadosMaterias[m.id] === estados.REGULAR) card.classList.add('regular');
             });
             actualizarProgreso();
+            actualizarRecomendaciones();
         }
 
         function actualizarProgreso() {
